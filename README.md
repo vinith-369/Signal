@@ -1,6 +1,6 @@
 # Secure Messaging Platform (Signal Clone)
 
-**Live Demo:** [https://signal-7alo.vercel.app/chat](https://signal-7alo.vercel.app/chat)
+**Live Demo:** [https://signal-7alo.vercel.app/chat](https://signal-tawny-five.vercel.app/chat)
 
 A highly functional, real-time messaging platform inspired by Signal Messenger. The application features a fully responsive UI, instant bidirectional communication using WebSockets, dynamic message status receipts (Sent, Delivered, Read), and a fully decoupled backend-frontend architecture.
 
