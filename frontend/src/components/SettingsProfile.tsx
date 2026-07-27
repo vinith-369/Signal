@@ -5,9 +5,10 @@ import { useState } from 'react';
 interface SettingsProfileProps {
   user: User;
   onUpdateProfile: (data: Partial<User>) => void;
+  onLogout: () => void;
 }
 
-export default function SettingsProfile({ user, onUpdateProfile }: SettingsProfileProps) {
+export default function SettingsProfile({ user, onUpdateProfile, onLogout }: SettingsProfileProps) {
   const [displayName, setDisplayName] = useState(user.display_name || '');
   const [about, setAbout] = useState(user.about || '');
 
@@ -63,6 +64,16 @@ export default function SettingsProfile({ user, onUpdateProfile }: SettingsProfi
               className="disabled-input"
             />
           </div>
+        </div>
+
+        <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center' }}>
+          <button 
+            className="modal-btn modal-btn-danger" 
+            style={{ width: '100%', padding: '12px' }}
+            onClick={onLogout}
+          >
+            Logout
+          </button>
         </div>
       </div>
     </div>

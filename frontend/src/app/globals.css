@@ -450,10 +450,11 @@ html, body {
 }
 
 .message-bubble {
-  max-width: 65%;
-  padding: 6px 10px;
+  max-width: 100%;
+  padding: 8px 12px;
   position: relative;
   word-wrap: break-word;
+  display: inline-block;
 }
 
 .message-bubble.sent {
@@ -469,25 +470,28 @@ html, body {
   border-radius: 18px 18px 18px 4px;
 }
 
-.message-content {
+.message-text {
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.message-meta {
+.message-meta-inline {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 4px;
-  margin-top: -2px;
-  align-self: flex-end;
-  margin-left: 12px;
+  float: right;
+  margin-left: 8px;
+  margin-top: 4px;
+  position: relative;
+  top: 2px;
 }
 
 .message-time {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
 }
 
 .message-bubble.received .message-time {
@@ -505,7 +509,7 @@ html, body {
 }
 
 .chat-list-item-status.read {
-  color: var(--signal-blue) !important;
+  color: #22C55E !important;
 }
 
 /* Input Area */

@@ -17,10 +17,38 @@ function formatMessageTime(dateStr: string): string {
   const d = new Date(dateStr);
   const now = new Date();
   const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return 'now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString();
+  if (diff < 60) return 'Now';
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+}
+
+function ReadReceiptIcon({ status }: { status: string }) {
+  if (status === 'read') {
+    // Filled green circle with double check
+    return (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ display: 'block' }}>
+        <circle cx="12" cy="12" r="11" fill="#22C55E" />
+        <path d="M6.5 12.5L9.5 15.5L17.5 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M3.5 12.5L6.5 15.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (status === 'delivered') {
+    // Outlined circle with double check
+    return (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ display: 'block' }}>
+        <circle cx="12" cy="12" r="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+        <path d="M6.5 12.5L9.5 15.5L17.5 8" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M3.5 12.5L6.5 15.5" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  // sent — single check, no circle
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ display: 'block' }}>
+      <circle cx="12" cy="12" r="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <path d="M7 12.5L10.5 16L17 8.5" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 export default function MessageBubble({
@@ -67,19 +95,11 @@ export default function MessageBubble({
         )}
         
         <div className={`message-bubble ${isSent ? 'sent' : 'received'}`}>
-          <div className="message-content" style={{ display: 'inline', wordBreak: 'break-word' }}>
-            {message.content}
-            <span style={{ display: 'inline-block', width: isSent ? 45 : 35, height: 1 }} />
-          </div>
-          
-          <div className="message-meta" style={{ position: 'absolute', bottom: 4, right: 8, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <span className="message-text">{message.content}</span>
+          <span className="message-meta-inline">
             <span className="message-time">{time}</span>
-            {isSent && (
-              <span className={`message-status ${message.status === 'read' ? 'read' : ''}`}>
-                {message.status === 'sent' ? '✓' : message.status === 'delivered' ? '✓✓' : '✓✓'}
-              </span>
-            )}
-          </div>
+            {isSent && <ReadReceiptIcon status={message.status} />}
+          </span>
         </div>
       </div>
     </div>

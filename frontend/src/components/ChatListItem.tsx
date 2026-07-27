@@ -77,8 +77,8 @@ export default function ChatListItem({ conversation, isSelected, onClick, curren
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
             <span className="chat-list-item-preview">
               {lastMessage && lastMessage.sender_id === currentUserId && (
-                <span className={`chat-list-item-status ${lastMessage.status === 'read' ? 'read' : ''}`} style={{ marginRight: 4 }}>
-                  {lastMessage.status === 'sent' ? '✓' : lastMessage.status === 'delivered' ? '✓✓' : '✓✓'}
+                <span className={`chat-list-item-status ${lastMessage.status === 'read' ? 'read' : ''}`} style={{ marginRight: 6, fontSize: '12px', fontWeight: 'normal' }}>
+                  {lastMessage.status === 'read' ? 'read' : lastMessage.status === 'delivered' ? 'delivered' : 'sent'}
                 </span>
               )}
               {lastMessagePreview}

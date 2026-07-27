@@ -15,7 +15,7 @@ import SettingsProfile from '@/components/SettingsProfile';
 import GroupInfoModal from '@/components/GroupInfoModal';
 
 export default function ChatPage() {
-  const { user, isAuthenticated, isLoading, token, updateProfile } = useAuth();
+  const { user, isAuthenticated, isLoading, token, updateProfile, logout } = useAuth();
   const router = useRouter();
 
   const [activeView, setActiveView] = useState<SidebarView>('chats');
@@ -79,11 +79,6 @@ export default function ChatPage() {
           ...prev,
           [data.user_id]: data.is_typing
         }));
-        if (data.is_typing) {
-          setTimeout(() => {
-            setTypingUsers(prev => ({ ...prev, [data.user_id]: false }));
-          }, 3000);
-        }
       }
     };
 
@@ -102,7 +97,7 @@ export default function ChatPage() {
         if (idx === -1) return prev;
         const c = prev[idx];
         if (c.last_message?.id === data.message_id) {
-          const updated = { ...c, last_message: { ...c.last_message, status: data.status } };
+          const updated = { ...c, last_message: { ...(c.last_message as Message), status: data.status } };
           return [...prev.slice(0, idx), updated, ...prev.slice(idx + 1)];
         }
         return prev;
@@ -111,8 +106,24 @@ export default function ChatPage() {
 
     ws.onMessageDeleted = (data: any) => {
       setMessages(prev => prev.filter(m => m.id !== data.message_id));
-      // Optionally update conversations last_message if it was the deleted one
-      // For simplicity, just letting the messages filter out
+    };
+
+    ws.onMessagesRead = (data: any) => {
+      const readIds = new Set(data.message_ids || []);
+      setMessages(prev =>
+        prev.map(m => readIds.has(m.id) ? { ...m, status: 'read' as const } : m)
+      );
+      // Also update the last_message status in the sidebar
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === data.conversation_id);
+        if (idx === -1) return prev;
+        const c = prev[idx];
+        if (c.last_message && readIds.has(c.last_message.id)) {
+          const updated = { ...c, last_message: { ...(c.last_message as Message), status: 'read' as const } };
+          return [...prev.slice(0, idx), updated, ...prev.slice(idx + 1)];
+        }
+        return prev;
+      });
     };
 
     setWsClient(ws);
@@ -197,7 +208,7 @@ export default function ChatPage() {
       const updatedContacts = await api.getContacts();
       setContacts(updatedContacts);
       
-      const newContact = updatedContacts.find(c => c.username.toLowerCase() === username.toLowerCase());
+      const newContact = updatedContacts.find((c: Contact) => c.username.toLowerCase() === username.toLowerCase());
       if (newContact) {
         handleNewContact(newContact.id);
       }
@@ -265,7 +276,7 @@ export default function ChatPage() {
       if (older.length > 0) {
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
-          const uniqueOlder = older.filter(m => !existingIds.has(m.id));
+          const uniqueOlder = older.filter((m: Message) => !existingIds.has(m.id));
           return [...uniqueOlder, ...prev];
         });
       }
@@ -350,7 +361,7 @@ export default function ChatPage() {
       </div>
       <div className="chat-pane">
         {activeView === 'settings' && showProfile ? (
-          <SettingsProfile user={user} onUpdateProfile={updateProfile} />
+          <SettingsProfile user={user} onUpdateProfile={updateProfile} onLogout={logout} />
         ) : activeView === 'chats' && selectedConversation ? (
           <ChatPane
             conversation={selectedConversation}

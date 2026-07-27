@@ -16,6 +16,7 @@ export class WebSocketClient {
   public onRead?: WSEventHandler;
   public onMessageUpdate?: WSEventHandler;
   public onMessageDeleted?: WSEventHandler;
+  public onMessagesRead?: WSEventHandler;
 
   constructor(userId: string, token: string) {
     const baseUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
@@ -52,6 +53,9 @@ export class WebSocketClient {
               break;
             case 'message_deleted':
               this.onMessageDeleted?.(data);
+              break;
+            case 'messages_read':
+              this.onMessagesRead?.(data);
               break;
             case 'user_online':
               this.onUserOnline?.(data.user_id);

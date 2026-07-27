@@ -134,7 +134,7 @@ async def delete_contact(contact_id: str, user_id: str = Depends(get_current_use
 @app.get("/api/users/search", response_model=List[UserResponse])
 async def search_users(q: str, user_id: str = Depends(get_current_user), db = Depends(get_db)):
     search_term = f"%{q}%"
-    cursor = await db.execute("SELECT * FROM users WHERE username LIKE ? OR display_name LIKE ? LIMIT 20", (search_term, search_term))
+    cursor = await db.execute("SELECT * FROM users WHERE username LIKE ? OR display_name LIKE ? OR phone LIKE ? LIMIT 20", (search_term, search_term, search_term))
     rows = await cursor.fetchall()
     return [UserResponse(**dict(r)) for r in rows]
 
@@ -304,23 +304,20 @@ async def send_message(id: str, msg: MessageCreate, user_id: str = Depends(get_c
     
     await manager.broadcast_to_conversation(member_ids, msg_data, exclude_user=user_id)
     
-    # MOCK: Auto-update to delivered and read for demonstration
-    import asyncio
-    async def mock_status_update(message_id, delay, status, conv_id):
-        await asyncio.sleep(delay)
-        async with aiosqlite.connect(DATABASE_URL) as adb:
-            await adb.execute("UPDATE messages SET status = ? WHERE id = ?", (status, message_id))
-            await adb.commit()
-            if user_id in manager.active_connections:
-                await manager.send_personal(user_id, {
-                    "type": "message_update",
-                    "message_id": message_id,
-                    "status": status,
-                    "conversation_id": conv_id
-                })
-    
-    asyncio.create_task(mock_status_update(msg_id, 10, 'delivered', id))
-    asyncio.create_task(mock_status_update(msg_id, 20, 'read', id))
+    # If any recipient is online, mark the message as 'delivered' and notify the sender
+    other_members = [m for m in member_ids if m != user_id]
+    any_online = any(m in manager.active_connections for m in other_members)
+    if any_online:
+        await db.execute("UPDATE messages SET status = 'delivered' WHERE id = ?", (msg_id,))
+        await db.commit()
+        # Notify sender about delivery
+        if user_id in manager.active_connections:
+            await manager.send_personal(user_id, {
+                "type": "message_update",
+                "message_id": msg_id,
+                "conversation_id": id,
+                "status": "delivered"
+            })
     
     return MessageResponse(**dict(row))
     
@@ -362,22 +359,52 @@ async def delete_conversation(id: str, user_id: str = Depends(get_current_user),
 async def mark_message_read(id: str, user_id: str = Depends(get_current_user), db = Depends(get_db)):
     now = datetime.utcnow()
     try:
+        # Get the message info
+        cursor = await db.execute("SELECT conversation_id, sender_id FROM messages WHERE id = ?", (id,))
+        msg_row = await cursor.fetchone()
+        if not msg_row:
+            return {"status": "ok"}
+        
+        conv_id = msg_row['conversation_id']
+        sender_id = msg_row['sender_id']
+        
+        # Mark ALL unread messages in this conversation as read (not just the one)
+        await db.execute(
+            "UPDATE messages SET status = 'read' WHERE conversation_id = ? AND sender_id != ? AND status != 'read'",
+            (conv_id, user_id)
+        )
+        
+        # Reset unread count for this user
+        await db.execute(
+            "UPDATE conversation_members SET unread_count = 0 WHERE conversation_id = ? AND user_id = ?",
+            (conv_id, user_id)
+        )
+        
+        # Insert receipt
         await db.execute(
             "INSERT OR REPLACE INTO message_receipts (message_id, user_id, status, timestamp) VALUES (?, ?, 'read', ?)",
             (id, user_id, now)
         )
-        # Update message status to read if all recipients have read it
-        cursor = await db.execute("SELECT conversation_id, sender_id FROM messages WHERE id = ?", (id,))
-        msg_row = await cursor.fetchone()
-        if msg_row:
-            await db.execute("UPDATE messages SET status = 'read' WHERE id = ?", (id,))
-            await db.execute(
-                "UPDATE conversation_members SET unread_count = 0 WHERE conversation_id = ? AND user_id = ?",
-                (msg_row['conversation_id'], user_id)
-            )
         await db.commit()
-    except Exception:
-        pass
+        
+        # Notify the sender via WebSocket so their ticks update in real time
+        if sender_id != user_id and sender_id in manager.active_connections:
+            # Get all message IDs in this conversation that were just marked as read
+            read_cursor = await db.execute(
+                "SELECT id FROM messages WHERE conversation_id = ? AND sender_id = ? AND status = 'read'",
+                (conv_id, sender_id)
+            )
+            read_msg_ids = [r['id'] for r in await read_cursor.fetchall()]
+            
+            await manager.send_personal(sender_id, {
+                "type": "messages_read",
+                "conversation_id": conv_id,
+                "reader_id": user_id,
+                "message_ids": read_msg_ids
+            })
+        
+    except Exception as e:
+        print(f"mark_read error: {e}")
     return {"status": "ok"}
 
 @app.delete("/api/messages/{id}")
@@ -496,29 +523,30 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str):
                         "is_typing": message.get("is_typing", True)
                     }, exclude_user=user_id)
                     
-                    # MOCK FOR INTERVIEW: If the other user is offline, echo a typing indicator back
+                    # DEMO MOCK: If this is a direct chat and the other user is offline, echo a typing indicator back
                     if len(member_ids) == 2 and message.get("is_typing", True):
-                        other_user = member_ids[0] if member_ids[0] != user_id else member_ids[1]
-                        if other_user not in manager.active_connections:
+                        other_members = [m for m in member_ids if m != user_id]
+                        other_id = other_members[0]
+                        if other_id not in manager.active_connections:
                             import asyncio
-                            async def mock_typing():
-                                await asyncio.sleep(2)
+                            async def mock_typing_reply():
+                                await asyncio.sleep(1.5)
                                 if user_id in manager.active_connections:
                                     await manager.send_personal(user_id, {
                                         "type": "typing",
-                                        "user_id": other_user,
+                                        "user_id": other_id,
                                         "conversation_id": conv_id,
                                         "is_typing": True
                                     })
-                                    await asyncio.sleep(4)
+                                    await asyncio.sleep(3.5)
                                     if user_id in manager.active_connections:
                                         await manager.send_personal(user_id, {
                                             "type": "typing",
-                                            "user_id": other_user,
+                                            "user_id": other_id,
                                             "conversation_id": conv_id,
                                             "is_typing": False
                                         })
-                            asyncio.create_task(mock_typing())
+                            asyncio.create_task(mock_typing_reply())
                     
                 elif message['type'] == 'mark_read':
                     msg_id = message['message_id']

@@ -4,7 +4,16 @@ from datetime import datetime, timedelta
 from auth import get_password_hash
 import uuid
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "./signal_clone.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+default_db_path = os.path.join(BASE_DIR, "signal_clone.db")
+
+DATABASE_URL = os.environ.get("DATABASE_URL", default_db_path)
+if "://" in DATABASE_URL:
+    if DATABASE_URL.startswith("sqlite:///"):
+        DATABASE_URL = DATABASE_URL.replace("sqlite:///", "")
+    else:
+        # Render sometimes auto-injects Postgres URLs, but this app uses SQLite
+        DATABASE_URL = default_db_path
 
 async def get_db():
     db = await aiosqlite.connect(DATABASE_URL)
