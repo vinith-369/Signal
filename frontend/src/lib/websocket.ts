@@ -19,7 +19,11 @@ export class WebSocketClient {
   public onMessagesRead?: WSEventHandler;
 
   constructor(userId: string, token: string) {
-    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+    let baseUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+    // Auto-convert http to ws to prevent connection errors in production
+    if (baseUrl.startsWith('http://')) baseUrl = baseUrl.replace('http://', 'ws://');
+    if (baseUrl.startsWith('https://')) baseUrl = baseUrl.replace('https://', 'wss://');
+    
     this.url = `${baseUrl}/ws/${userId}?token=${token}`;
     this.connect();
   }
