@@ -15,9 +15,6 @@ interface MessageBubbleProps {
 
 function formatMessageTime(dateStr: string): string {
   const d = new Date(dateStr);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return 'Now';
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
 }
 
