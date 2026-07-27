@@ -55,6 +55,8 @@ export default function ChatPage() {
       const currentConv = selectedConvRef.current;
       if (currentConv && currentConv.id === msg.conversation_id) {
         setMessages(prev => [...prev, msg]);
+        // Immediately mark the message as read since the user is actively viewing this chat
+        api.markRead(msg.id).catch(console.error);
       }
 
       setConversations(prev => {
